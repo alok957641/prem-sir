@@ -1,0 +1,20 @@
+Prem & Nisha wedding invitation: image placement
+
+All website images are served from public/images and should be referenced as /images/<filename>.
+
+The newly supplied WebP files are already connected in app/wedding-invitation.jsx:
+- ceremony-vivah.webp: Satyanarayan / mandap puja event card
+- ceremony-haldi.webp: Haldi event card
+- ceremony-mehendi.webp: Mehendi gallery card
+- ceremony-reception.webp: Wedding reception event card
+- venue-reception.webp: Venue section
+- rsvp-reception.webp: Reception illustration card (transparent artwork)
+- mandap.webp: Wide closing mandap section
+- setup-haldi.webp, setup-mehendi.webp, setup-reception.webp: family preparation collage and gallery
+
+Other site artwork stays in public/images, including the cover image, toran, portraits and the new couple-rangoli-bg.png section decoration.
+
+Deployment:
+- npm ci
+- npm run build
+- Upload the generated out/ folder to a static host, or deploy the source project to Vercel.
