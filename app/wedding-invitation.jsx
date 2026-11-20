@@ -23,10 +23,6 @@ export default function WeddingInvitation() {
   const [petals, setPetals] = useState([]);
   const [toast, setToast] = useState("");
   const [musicOn, setMusicOn] = useState(false);
-  const [gameRunning, setGameRunning] = useState(false);
-  const [gameScore, setGameScore] = useState(0);
-  const [gameTime, setGameTime] = useState(15);
-  const [sehraPosition, setSehraPosition] = useState({ left: 50, top: 49 });
   const coverRef = useRef(null);
   const leftCurtainRef = useRef(null);
   const rightCurtainRef = useRef(null);
@@ -48,6 +44,41 @@ export default function WeddingInvitation() {
     window.clearTimeout(toastTimer.current);
     toastTimer.current = window.setTimeout(() => setToast(""), 2600);
   }, []);
+
+  const shareInvitation = useCallback(async () => {
+    const shareUrl = window.location.href.split("#")[0];
+    const shareData = {
+      title: "Prem & Nisha Wedding Invitation",
+      text: "Join us to celebrate Prem and Nisha's wedding.",
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast("Invitation link copied. Share it with your family and friends!");
+        return;
+      }
+
+      const input = document.createElement("textarea");
+      input.value = shareUrl;
+      input.setAttribute("readonly", "");
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand("copy");
+      input.remove();
+      showToast(copied ? "Invitation link copied. Share it with your family and friends!" : `Share this invitation: ${shareUrl}`);
+    } catch (error) {
+      if (error?.name !== "AbortError") showToast(`Share this invitation: ${shareUrl}`);
+    }
+  }, [showToast]);
 
   const showerAt = useCallback((x, y, amount = 28) => {
     if (reducedMotion) return;
@@ -78,14 +109,6 @@ export default function WeddingInvitation() {
     return () => window.clearInterval(rain);
   }, [reducedMotion]);
 
-  useEffect(() => {
-    if (!gameRunning) return undefined;
-    const timer = window.setInterval(() => setGameTime((remaining) => Math.max(remaining - 1, 0)), 1000);
-    return () => window.clearInterval(timer);
-  }, [gameRunning]);
-  useEffect(() => {
-    if (gameRunning && gameTime === 0) { setGameRunning(false); showToast(`Baraat aa gayi! Sehra score: ${gameScore}`); }
-  }, [gameRunning, gameTime, gameScore, showToast]);
 
   useGSAP(() => {
     if (reducedMotion || !entered || !invitationRef.current) return;
@@ -127,12 +150,6 @@ export default function WeddingInvitation() {
     if (audio.paused) { try { await audio.play(); setMusicOn(true); } catch { showToast("Song yahan rakho: public/audio/wedding-song.mp3"); } }
     else { audio.pause(); setMusicOn(false); }
   };
-  const startGame = () => { setGameScore(0); setGameTime(15); setSehraPosition({ left: 50, top: 50 }); setGameRunning(true); };
-  const catchSehra = (event) => {
-    event.stopPropagation(); setGameScore((score) => score + 1); setSehraPosition({ left: randomBetween(10, 88), top: randomBetween(25, 72) });
-    const bounds = event.currentTarget.parentElement.getBoundingClientRect(); showerAt(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2, 24);
-    if (navigator.vibrate && !reducedMotion) navigator.vibrate(18);
-  };
   const handlePageClick = (event) => { if (entered && !event.target.closest("button, a, input")) showerAt(event.clientX, event.clientY, 18); };
 
   return <div className="wedding-app min-h-screen overflow-x-hidden" ref={invitationRef} onPointerDown={handlePageClick}>
@@ -143,14 +160,22 @@ export default function WeddingInvitation() {
         <div className="cover-image" aria-hidden="true" />
         <div className="cover-wash" aria-hidden="true" />
         <div className="cover-toran" aria-hidden="true"><span>✿　❀　✿　❀　✿　❀　✿　❀　✿　❀　✿</span></div>
-        <div className="cover-pillar pillar-left" aria-hidden="true"><i /><b>✿</b><i /></div>
-        <div className="cover-pillar pillar-right" aria-hidden="true"><i /><b>✿</b><i /></div>
         <CurtainSide side="left" curtainRef={leftCurtainRef} />
         <CurtainSide side="right" curtainRef={rightCurtainRef} />
         <div className="cover-copy relative z-20 mx-auto flex max-w-3xl flex-col items-center px-5 text-center">
-          <motion.span className="cover-om" aria-hidden="true" animate={reducedMotion ? {} : { y: [0, -5, 0] }} transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}>ॐ</motion.span>
+         <motion.img
+              className="cover-om-logo"
+              src="/images/ganesha.webp"
+              alt="Shri Ganesha"
+              animate={reducedMotion ? {} : { y: [0, -5, 0] }}
+              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
+            />
           <p className="cover-invocation">Om Shri Ganeshaya Namah</p>
-          <h1>Prem Ranjan <span>&</span><br />Nisha Kumari</h1>
+          <h1 className="cover-names">
+            <span className="cover-name">Prem Ranjan</span>
+            <span className="cover-amp">&amp;</span>
+            <span className="cover-name">Nisha Kumari</span>
+          </h1>
           <p className="cover-tagline">With the blessings of our families</p>
           <p className="cover-date">FRIDAY <b>04</b> DECEMBER 2026</p>
           <motion.button className="enter-button" onClick={enterInvitation} whileHover={reducedMotion ? {} : { y: -3, scale: 1.025 }} whileTap={{ scale: .97 }} disabled={opening}>
@@ -175,7 +200,11 @@ export default function WeddingInvitation() {
           <div className="landing-hero-shade" aria-hidden="true" />
           <div className="landing-hero-inner">
             <div className="landing-hero-copy">
-              <span className="landing-ganesha" aria-hidden="true">ॐ</span>
+              <img
+                className="landing-ganesha"
+                src="/images/ganesha.webp"
+                alt="Shri Ganesh"
+              />
               <p className="landing-invocation">Om Shri Ganeshaya Namah</p>
               <p className="landing-overline">WITH THE BLESSINGS OF OUR FAMILIES</p>
               <h1>Prem Ranjan <span>&amp;</span> Nisha Kumari</h1>
@@ -202,7 +231,7 @@ export default function WeddingInvitation() {
         </section>
         <section className="venue-band" id="venue" data-scroll-reveal>
           <div className="venue-photo image-slot"><img src="/images/venue-reception.webp" alt="Warmly lit wedding reception venue" loading="lazy" /></div>
-          <div className="venue-copy"><p className="eyebrow">WEDDING RECEPTION · SUNDAY, 06 DECEMBER · 6:00 PM ONWARDS</p><h2>The celebration<br /><em>continues</em></h2><p>Join both families at the wedding reception and visit the family homes.</p><address>Village Sonela, Post Office Sahaja<br />Police Station Mansahi, District Katihar, Bihar</address><div className="location-links"><a className="gold-button" href="https://maps.app.goo.gl/SumCSrh2LeW8cXLx8" target="_blank" rel="noreferrer">Sasural location <span>↗</span></a><a className="gold-button" href="https://maps.app.goo.gl/jptcVhD1Jg6GJoyw5" target="_blank" rel="noreferrer">Ghar location <span>↗</span></a></div></div>
+          <div className="venue-copy"><p className="eyebrow">WEDDING RECEPTION · SUNDAY, 06 DECEMBER · 6:00 PM ONWARDS</p><h2>The celebration<br /><em>continues</em></h2><p>Join both families at the wedding reception and visit the family homes.</p><address>Village Sonela, Post Office Sahaja<br />Police Station Mansahi, District Katihar, Bihar</address><div className="location-links"><a className="gold-button" href="https://maps.app.goo.gl/SumCSrh2LeW8cXLx8" target="_blank" rel="noreferrer">in-laws location <span>↗</span></a><a className="gold-button" href="https://maps.app.goo.gl/jptcVhD1Jg6GJoyw5" target="_blank" rel="noreferrer">Home location <span>↗</span></a></div></div>
         </section>
         <section className="reception-section section-pad" data-scroll-reveal>
           <div className="reception-art image-slot"><img src="/images/rsvp-reception.webp" alt="Floral sofa and mandap decoration for the reception" loading="lazy" /></div>
@@ -215,7 +244,7 @@ export default function WeddingInvitation() {
         <section className="gallery-game section-pad" data-scroll-reveal>
           <div className="gallery-head"><div><p className="eyebrow">LITTLE MOMENTS, BIG MEMORIES</p><h2>Share the moments<br /><em>you capture</em></h2><p>Add your favourite wedding photos here after the celebrations.</p></div>
             <div className="gallery-photos" aria-label="Wedding celebration photographs"><div className="gallery-photo gallery-photo-one"><img src="/images/setup-reception.webp" alt="Reception decor before the celebration" loading="lazy" /></div><div className="gallery-photo gallery-photo-two"><img src="/images/setup-mehendi.webp" alt="Mehendi setup with floral details" loading="lazy" /></div><div className="gallery-photo gallery-photo-three"><img src="/images/ceremony-mehendi.webp" alt="Mehendi ceremony details" loading="lazy" /></div></div></div>
-          <BaraatGame gameRunning={gameRunning} gameScore={gameScore} gameTime={gameTime} sehraPosition={sehraPosition} startGame={startGame} catchSehra={catchSehra} />
+          <BlessingsGuestbook />
         </section>
         <section className="rsvp-section section-pad" id="rsvp" data-scroll-reveal><p className="eyebrow">WITH WARM REGARDS</p><p className="closing-message">Please join us in celebrating this special occasion and bless Prem and Nisha as they begin their life together.</p><h2>Prem Ranjan <span>&</span> Nisha Kumari</h2><p className="closing-family">Mr. Krityanand Mandal and the entire family</p><div className="rsvp-actions"><a className="rsvp-button" href="https://wa.me/919097878230?text=Namaste%2C%20I%20am%20confirming%20for%20Prem%20and%20Nisha%27s%20wedding.%20Please%20share%20the%20details." target="_blank" rel="noreferrer">RSVP · 90978 78230 <span>↗</span></a><p className="rsvp-contact">Mr. Jay Prakash · Sub-Inspector, Police Centre, Katihar</p></div></section>
         <section className="footer-mandap image-slot" data-scroll-reveal aria-label="Wedding mandap"><img src="/images/mandap.webp" alt="Wedding mandap decorated with flowers and lights" loading="lazy" /><div><p className="eyebrow">THE WEDDING CELEBRATION</p><h2>One mandap.<br />Two families.<br /><em>A lifetime of stories.</em></h2></div></section>
@@ -240,8 +269,16 @@ export default function WeddingInvitation() {
           )}
         </svg>
       </button>
-      <AnimatePresence>{toast && <motion.div className="toast-message" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} role="status">{toast}</motion.div>}</AnimatePresence>
     </motion.div>}
+    <button className="share-fab" type="button" onClick={shareInvitation} aria-label="Share wedding invitation" title="Share wedding invitation">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="18" cy="5" r="3" />
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <path d="m8.7 10.7 6.6-3.4M8.7 13.3l6.6 3.4" />
+      </svg>
+    </button>
+    <AnimatePresence>{toast && <motion.div className="toast-message" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} role="status">{toast}</motion.div>}</AnimatePresence>
     <audio ref={audioRef} src="/audio/wedding-song.mp3" loop preload="none" onEnded={() => setMusicOn(false)} />
   </div>;
 }
@@ -258,6 +295,37 @@ function PersonCard({ side, label, name, role, parents, grandparent, address }) 
 function EventCard({ moment }) {
   return <article className={`event-row ${moment.side === "right" ? "event-row-reverse" : "event-row-normal"}`} data-scroll-reveal><div className="event-photo image-slot"><img src={moment.image} alt={`${moment.title} wedding celebration`} loading="lazy" /></div><div className="event-copy"><p className="eyebrow">{moment.date}</p><h3>{moment.title}<br /><em>{moment.sub}</em></h3><p>{moment.detail}</p></div></article>;
 }
-function BaraatGame({ gameRunning, gameScore, gameTime, sehraPosition, startGame, catchSehra }) {
-  return <div className="game-inline"><div className="game-heading"><p className="eyebrow">A LITTLE BARAAT MASTI</p><h3>Catch the <em>sehra!</em></h3><p>The groom’s sehra got loose. Catch as many as you can before the baraat reaches the venue.</p></div><div className={`game-board ${gameRunning ? "game-active" : ""}`}><div className="game-score"><span>CAUGHT <b>{gameScore}</b></span><span>TIME <b>{String(gameTime).padStart(2, "0")}s</b></span></div>{gameRunning ? <motion.button className="sehra-target" style={{ left: `${sehraPosition.left}%`, top: `${sehraPosition.top}%` }} onClick={catchSehra} animate={{ rotate: [-6, 6, -6] }} transition={{ duration: .65, repeat: Infinity, ease: "easeInOut" }} aria-label="Catch the sehra">🐴<span>✿</span></motion.button> : <div className="game-idle-art" aria-hidden="true">🐴　✿　🪘</div>}{!gameRunning ? <button className="game-start" onClick={startGame}>{gameTime === 0 ? "Play again" : "Start the baraat game"}<span>↗</span></button> : <p className="game-instruction">Tap the moving sehra!</p>}</div><p className="game-joke">Baraat traffic ka tension uncle ko. Aap bas sehra pakdo!</p></div>;
+
+
+function BlessingsGuestbook() {
+  const sendWish = (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("guestName") || "").trim();
+    const wish = String(formData.get("guestWish") || "").trim();
+    if (!name || !wish) return;
+
+    const message = `Namaste Prem and Nisha!\n\nMy name is ${name}.\n\nMy heartfelt wishes for you both: ${wish}`;
+    const whatsappUrl = `https://wa.me/917976023404?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+  };
+
+  return <div className="blessings-panel">
+    <div className="blessings-copy">
+      <p className="eyebrow">A LITTLE NOTE FOR THE COUPLE</p>
+      <h3>Send your <em>blessings</em></h3>
+      <p>Share a warm wish for Prem and Nisha’s new journey together.</p>
+    </div>
+    <form className="blessings-form" onSubmit={sendWish}>
+      <label className="blessings-message-label" htmlFor="guest-wish">Your heartfelt wish</label>
+      <textarea id="guest-wish" name="guestWish" placeholder="Wishing you both a lifetime of love, laughter and happiness…" rows="3" maxLength={500} required />
+      <div className="blessings-form-footer">
+        <label className="blessings-name-field" htmlFor="guest-name">
+          <span aria-hidden="true">♡</span>
+          <input id="guest-name" name="guestName" type="text" placeholder="Your name" autoComplete="name" maxLength={80} required />
+        </label>
+        <button className="blessings-send" type="submit">Send on WhatsApp <span aria-hidden="true">↗</span></button>
+      </div>
+    </form>
+  </div>;
 }
